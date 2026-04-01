@@ -1,0 +1,48 @@
+{
+  "corridors": [
+    {
+      "id": "ET_to_KE",
+      "origin_country": "Ethiopia",
+      "origin_iso": "ET",
+      "destination_country": "Kenya",
+      "destination_iso": "KE",
+      "notes": "Phase-1 illustrative rules for the Addis→Nairobi coffee scenario. Not legal advice.",
+      "required_documents": [
+        {
+          "id": "certificate_of_origin",
+          "name": "Certificate of Origin",
+          "category": "customs",
+          "required": true,
+          "rationale": "Origin evidence for preferential treatment and customs clearance (e.g. COMESA/EAC context)."
+        },
+        {
+          "id": "phytosanitary_certificate",
+          "name": "Phytosanitary Certificate",
+          "category": "sanitary_phytosanitary",
+          "required": true,
+          "rationale": "Plant-health clearance for coffee and other regulated plant products entering Kenya."
+        },
+        {
+          "id": "commercial_invoice",
+          "name": "Commercial Invoice",
+          "category": "commercial",
+          "required": true,
+          "rationale": "Value, quantity, and parties for customs valuation."
+        },
+        {
+          "id": "packing_list",
+          "name": "Packing List",
+          "category": "commercial",
+          "required": true,
+          "rationale": "Package-level detail matching the invoice and shipment."
+        }
+      ]
+    }
+  ],
+  "index": {
+    "by_corridor": {
+      "ET|KE": "ET_to_KE",
+      "ET_TO_KE": "ET_to_KE"
+    }
+  }
+}
