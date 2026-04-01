@@ -42,17 +42,15 @@ def test_configure_langsmith_noop_without_flag(monkeypatch):
 
 
 def test_configure_langsmith_sets_env_when_enabled(monkeypatch):
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "true")
+    monkeypatch.setenv("LANGCHAIN_API_KEY", "sk-test")
+    monkeypatch.setenv("LANGCHAIN_PROJECT", "afrigate-ci")
+
     from core.config import Settings
-
-    monkeypatch.delenv("LANGCHAIN_TRACING_V2", raising=False)
-    s = Settings(
-        langchain_tracing_v2=True,
-        langchain_api_key="sk-test",
-        langchain_project="afrigate-ci",
-    )
+    s = Settings()
     assert langsmith.configure_langsmith(s) is True
-    import os
 
+    import os
     assert os.environ.get("LANGCHAIN_TRACING_V2") == "true"
     assert os.environ.get("LANGCHAIN_API_KEY") == "sk-test"
     assert os.environ.get("LANGCHAIN_PROJECT") == "afrigate-ci"

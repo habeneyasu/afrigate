@@ -14,12 +14,11 @@ def test_hs_codes_json_loads():
     assert coffee["trade_agreement"] == "COMESA"
 
 
-def test_regulations_et_ke_corridor():
+def test_regulations_ke_required_documents():
     data = json.loads((_RULES / "regulations.json").read_text(encoding="utf-8"))
-    corridors = data.get("corridors", [])
-    et_ke = next(c for c in corridors if c.get("id") == "ET_to_KE")
-    assert et_ke["origin_iso"] == "ET"
-    assert et_ke["destination_iso"] == "KE"
-    ids = {d["id"] for d in et_ke["required_documents"]}
-    assert "certificate_of_origin" in ids
-    assert "phytosanitary_certificate" in ids
+    assert "KE" in data
+    ke = data["KE"]
+    assert ke["country"] == "Kenya"
+    required = ke["required_documents"]
+    assert "certificate_of_origin" in required
+    assert "phytosanitary_certificate" in required
