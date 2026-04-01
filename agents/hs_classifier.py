@@ -11,7 +11,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
+from utils.logger import get_logger
+
 _RULES_PATH = Path(__file__).resolve().parent.parent / "rules" / "hs_codes.json"
+_log = get_logger("agents.hs_classifier")
 
 
 def _normalize(text: str) -> str:
@@ -74,6 +77,19 @@ def run_hs_classifier(state: Mapping[str, Any]) -> dict[str, Any]:
             f"hs_classifier: {hs_result['hs_code']} "
             f"({hs_result['trade_agreement']}, tariff {hs_result['tariff_rate']}%)"
         )
+
+    _log.info(
+        "hs_classification",
+        extra={
+            "agent": "hs_classifier",
+            "event": "hs_classification",
+            "product": product_str[:500],
+            "found": bool(match),
+            "hs_code": hs_result.get("hs_code"),
+            "trade_agreement": hs_result.get("trade_agreement"),
+            "tariff_rate": hs_result.get("tariff_rate"),
+        },
+    )
 
     return {
         "hs_result": hs_result,
