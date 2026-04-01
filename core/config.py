@@ -1,27 +1,51 @@
-"""
-config.py — Pydantic settings for Afrigate.
-Reads from .env / environment variables.
-"""
+"""Afrigate application settings — loaded once at import time."""
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
-    # LLM keys (optional in Phase 1 — zero-API)
-    openai_api_key: str = ""
-    google_api_key: str = ""
+    # ------------------------------------------------------------------
+    # LLM  (optional in Phase 1 — zero-API architecture)
+    # ------------------------------------------------------------------
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
+    default_model: str = Field(default="gpt-4o-mini", alias="DEFAULT_MODEL")
 
+    # ------------------------------------------------------------------
     # LangSmith tracing
-    langchain_tracing_v2: bool = False
-    langchain_api_key: str = ""
-    langchain_project: str = "afrigate"
+    # ------------------------------------------------------------------
+    langchain_tracing_v2: bool = Field(default=False, alias="LANGCHAIN_TRACING_V2")
+    langchain_api_key: str = Field(default="", alias="LANGCHAIN_API_KEY")
+    langchain_project: str = Field(default="afrigate", alias="LANGCHAIN_PROJECT")
 
+    # ------------------------------------------------------------------
+    # Orchestration
+    # ------------------------------------------------------------------
+    max_iterations: int = Field(default=3, ge=1, alias="MAX_ITERATIONS")
+    # Self-correction loop cap (RFC §4/§5). Must be >= 1.
+
+    # ------------------------------------------------------------------
     # App
-    log_level: str = "INFO"
-    environment: str = "development"
-    default_model: str = "gpt-4o-mini"   # used when LLM layer is enabled (RFC §10)
-    max_iterations: int = 3              # self-correction loop cap (RFC §4/§5)
+    # ------------------------------------------------------------------
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+
+    @property
+    def is_llm_enabled(self) -> bool:
+        """True when at least one LLM API key is configured."""
+        return bool(self.openai_api_key or self.google_api_key)
+
+    @property
+    def is_tracing_enabled(self) -> bool:
+        """True when LangSmith tracing is active."""
+        return self.langchain_tracing_v2 and bool(self.langchain_api_key)
 
 
 settings = Settings()

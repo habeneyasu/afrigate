@@ -2,7 +2,7 @@
 
 Autonomous multi-agent swarm for African cross-border trade compliance, built with LangGraph.
 
-Phase 1 uses fully deterministic (mocked) agents — no API keys required. The orchestration graph, self-correction loop, and Gradio UI all work out of the box.
+Phase 1 uses a zero-API, deterministic architecture — no API keys required to run the demo.
 
 ---
 
@@ -33,12 +33,10 @@ compliance       — validates required documents against rules/regulations.json
   ▼
 evaluator        — decides: accept / retry (with feedback) / ask_user
   │
-  ├─► accept    ──► END  (final report produced)
-  ├─► retry     ──► back to doc_intel with feedback  (max 3 iterations)
+  ├─► accept    ──► END  (final_report produced)
+  ├─► retry     ──► back to doc_intel with feedback  (max MAX_ITERATIONS, default 3)
   └─► ask_user  ──► END  (manual intervention required)
 ```
-
-The self-correction loop is the core feature: on a failed compliance check, the evaluator generates feedback, doc_intel applies it (e.g. adds the missing certificate), and the pipeline reruns automatically.
 
 ---
 
@@ -48,17 +46,17 @@ The self-correction loop is the core feature: on a failed compliance check, the 
 afrigate/
 ├── agents/
 │   ├── doc_intel.py        # @naheem      — extraction & parsing
-│   ├── hs_classifier.py    # @Matrix      — HS code classification
+│   ├── hs_classifier.py    # @Matrix      — HS code classification  ✓
 │   ├── compliance.py       # Auditor      — compliance validation
 │   └── evaluator.py        # @iyanuashiri — reasoning & retry logic
 ├── core/
-│   ├── state.py            # AfrigateState (shared TypedDict)
-│   ├── graph.py            # LangGraph state machine & routing
-│   └── config.py           # Pydantic settings (keys, max_iterations, etc.)
+│   ├── state.py            # AfrigateState + sub-schemas + initial_state()  ✓
+│   ├── graph.py            # LangGraph nodes, edges, retry routing  ✓
+│   └── config.py           # Pydantic settings (API keys, MAX_ITERATIONS)  ✓
 ├── rules/
-│   ├── regulations.json    # Country-specific required documents (KE, NG, GH, ET)
-│   └── hs_codes.json       # Product → HS code + tariff mapping
-├── rag/                    # Phase 2 — RAG knowledge base (stubs only)
+│   ├── regulations.json    # Required documents per country (KE, NG, GH, ET)
+│   └── hs_codes.json       # Product → HS code + tariff + trade agreement  ✓
+├── rag/                    # Phase 2 — RAG knowledge base (stubs)
 ├── ui/
 │   └── app.py              # Gradio web interface
 ├── utils/
@@ -66,7 +64,7 @@ afrigate/
 │   └── langsmith.py        # LangSmith tracing setup
 └── tests/
     ├── conftest.py         # Shared fixtures (Addis-to-Nairobi scenario)
-    ├── unit/               # Per-agent unit tests (skipped until implemented)
+    ├── unit/               # Per-agent unit tests
     └── integration/        # Full graph end-to-end test
 ```
 
@@ -93,44 +91,56 @@ pytest -q
 
 ---
 
-## Team — Module Ownership
-
-| Module | Owner | Status |
-|---|---|---|
-| `agents/doc_intel.py` | @naheem | TODO |
-| `agents/hs_classifier.py` | @Matrix | TODO |
-| `agents/compliance.py` | Auditor | TODO |
-| `agents/evaluator.py` | @iyanuashiri | TODO |
-| `core/graph.py` + `core/state.py` | Haben E. Akelom | Done |
-
-Each agent has a clear function signature, docstring, and matching unit tests in `tests/unit/`. Implement the body, remove the `raise NotImplementedError`, and the tests will automatically unskip.
-
----
-
 ## State Schema
 
-All agents read from and write to `AfrigateState` (defined in `core/state.py`):
+Defined in `core/state.py` as typed sub-schemas. All agents return partial update dicts; LangGraph merges them automatically.
 
 | Field | Type | Set by |
 |---|---|---|
-| `document_raw` | `str` | UI input |
-| `extracted_fields` | `dict` | doc_intel |
-| `hs_result` | `dict` | hs_classifier |
-| `compliance_result` | `dict` | compliance |
-| `evaluator_decision` | `accept / retry / ask_user` | evaluator |
+| `document_raw` | `str` | UI / caller |
+| `extracted_fields` | `ExtractedFields` | doc_intel |
+| `hs_result` | `HSResult` | hs_classifier |
+| `compliance_result` | `ComplianceResult` | compliance |
+| `evaluator_decision` | `accept \| retry \| ask_user` | evaluator |
 | `evaluator_feedback` | `str` | evaluator |
 | `iteration` | `int` | evaluator (incremented on retry) |
-| `agent_log` | `list[str]` | all agents (appended) |
-| `final_report` | `dict` | evaluator (on accept/ask_user) |
+| `agent_log` | `list[str]` | all agents (append-merged) |
+| `final_report` | `FinalReport \| None` | evaluator (on accept/ask_user) |
+| `errors` | `list[str]` | any agent (append-merged) |
+
+To start a new request:
+
+```python
+from core.state import initial_state
+from core.graph import build_graph
+
+result = build_graph().invoke(initial_state(
+    "Export 500kg roasted coffee from Ethiopia to Kenya, value USD 8,000."
+))
+```
+
+---
+
+## Configuration
+
+All settings are in `core/config.py` (Pydantic, reads from `.env`):
+
+| Variable | Default | Description |
+|---|---|---|
+| `MAX_ITERATIONS` | `3` | Self-correction loop cap |
+| `DEFAULT_MODEL` | `gpt-4o-mini` | LLM model (Phase 2) |
+| `LANGCHAIN_TRACING_V2` | `false` | Enable LangSmith tracing |
+| `OPENAI_API_KEY` | — | Required only when LLM layer is enabled |
+| `GOOGLE_API_KEY` | — | Required only when LLM layer is enabled |
 
 ---
 
 ## Rules Data
 
-- `rules/regulations.json` — required documents per destination country (KE, NG, GH, ET)
-- `rules/hs_codes.json` — product keyword → HS code + tariff + trade agreement
+Edit these files to extend coverage — no code changes needed:
 
-Add new countries or products by editing these files — no code changes needed.
+- `rules/hs_codes.json` — product keywords → HS code, tariff rate, trade agreement
+- `rules/regulations.json` — destination country → required document keys
 
 ---
 
