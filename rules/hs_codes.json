@@ -1,0 +1,74 @@
+{
+  "entries": [
+    {
+      "keywords": ["coffee", "roasted coffee", "green coffee", "coffee beans"],
+      "hs_code": "0901.21",
+      "description": "Coffee, roasted",
+      "tariff_rate": 0.0,
+      "trade_agreement": "COMESA"
+    },
+    {
+      "keywords": ["cocoa", "cocoa beans", "cacao"],
+      "hs_code": "1801.00",
+      "description": "Cocoa beans, whole or broken, raw or roasted",
+      "tariff_rate": 0.0,
+      "trade_agreement": "AfCFTA"
+    },
+    {
+      "keywords": ["cashew", "cashew nuts", "cashews"],
+      "hs_code": "0801.32",
+      "description": "Cashew nuts, fresh or dried, in shell",
+      "tariff_rate": 0.0,
+      "trade_agreement": "ECOWAS"
+    },
+    {
+      "keywords": ["tea", "black tea", "green tea"],
+      "hs_code": "0902.30",
+      "description": "Tea, green (unfermented), not flavoured",
+      "tariff_rate": 0.0,
+      "trade_agreement": "EAC"
+    },
+    {
+      "keywords": ["cotton", "cotton lint", "raw cotton"],
+      "hs_code": "5201.00",
+      "description": "Cotton, not carded or combed",
+      "tariff_rate": 5.0,
+      "trade_agreement": "AfCFTA"
+    },
+    {
+      "keywords": ["palm oil", "crude palm oil", "cpo"],
+      "hs_code": "1511.10",
+      "description": "Palm oil and its fractions, crude",
+      "tariff_rate": 0.0,
+      "trade_agreement": "AfCFTA"
+    },
+    {
+      "keywords": ["shea", "shea butter", "shea nut"],
+      "hs_code": "1515.90",
+      "description": "Fixed vegetable fats and oils (incl. shea oil)",
+      "tariff_rate": 0.0,
+      "trade_agreement": "ECOWAS"
+    },
+    {
+      "keywords": ["sesame", "sesame seed", "sesame seeds", "beniseed"],
+      "hs_code": "1207.40",
+      "description": "Sesamum seeds",
+      "tariff_rate": 0.0,
+      "trade_agreement": "COMESA"
+    },
+    {
+      "keywords": ["mango", "mangoes", "fresh mango"],
+      "hs_code": "0804.50",
+      "description": "Guavas, mangoes and mangosteens, fresh",
+      "tariff_rate": 10.0,
+      "trade_agreement": "EAC"
+    },
+    {
+      "keywords": ["flower", "flowers", "cut flowers", "roses", "rose cut"],
+      "hs_code": "0603.11",
+      "description": "Cut flowers, fresh — roses",
+      "tariff_rate": 0.0,
+      "trade_agreement": "COMESA"
+    }
+  ]
+}
