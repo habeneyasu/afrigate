@@ -12,11 +12,26 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------
-    # LLM  (optional in Phase 1 — zero-API architecture)
+    # Cerebras — active provider
+    # ------------------------------------------------------------------
+    cerebras_api_key: str = Field(default="", alias="CEREBRAS_API_KEY")
+    cerebras_base_url: str = Field(
+        default="https://api.cerebras.ai/v1", alias="CEREBRAS_BASE_URL"
+    )
+    cerebras_model_worker: str = Field(default="llama3.1-8b", alias="CEREBRAS_MODEL_WORKER")
+    cerebras_model_evaluator: str = Field(default="llama3.1-8b", alias="CEREBRAS_MODEL_EVALUATOR")
+
+    # ------------------------------------------------------------------
+    # Google Gemini — preferred evaluator provider
+    # ------------------------------------------------------------------
+    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
+    gemini_model_worker: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL_WORKER")
+    gemini_model_evaluator: str = Field(default="gemini-1.5-flash", alias="GEMINI_MODEL_EVALUATOR")
+
+    # ------------------------------------------------------------------
+    # OpenAI — fallback
     # ------------------------------------------------------------------
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
-    google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
-    default_model: str = Field(default="gpt-4o-mini", alias="DEFAULT_MODEL")
 
     # ------------------------------------------------------------------
     # LangSmith tracing
@@ -29,7 +44,6 @@ class Settings(BaseSettings):
     # Orchestration
     # ------------------------------------------------------------------
     max_iterations: int = Field(default=3, ge=1, alias="MAX_ITERATIONS")
-    # Self-correction loop cap (RFC §4/§5). Must be >= 1.
 
     # ------------------------------------------------------------------
     # App
@@ -40,7 +54,7 @@ class Settings(BaseSettings):
     @property
     def is_llm_enabled(self) -> bool:
         """True when at least one LLM API key is configured."""
-        return bool(self.openai_api_key or self.google_api_key)
+        return bool(self.cerebras_api_key or self.openai_api_key or self.google_api_key)
 
     @property
     def is_tracing_enabled(self) -> bool:
