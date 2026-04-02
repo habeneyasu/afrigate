@@ -42,9 +42,7 @@ except ImportError:
     HAS_PYCOUNTRY = False
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# OUTPUT TYPE
-# ═══════════════════════════════════════════════════════════════════════════
+#output type
 
 class ExtractedFields(TypedDict, total=False):
     """Output of run_doc_intel. Countries use ISO 3166-1 alpha-2 codes."""
@@ -58,9 +56,7 @@ class ExtractedFields(TypedDict, total=False):
     documents_present:   list[str]
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# TRADE DOCUMENT DATACLASS
-# ═══════════════════════════════════════════════════════════════════════════
+#trade doc class
 
 @dataclass
 class TradeDocument:
@@ -230,9 +226,7 @@ class TradeDocument:
         return "Extracted Trade Fields\n" + "=" * 60 + "\n" + "\n".join(lines)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# FIELD ALIASES
-# ═══════════════════════════════════════════════════════════════════════════
+#field aliases
 
 FIELD_ALIASES: dict[str, list[str]] = {
 
@@ -492,9 +486,7 @@ FIELD_ALIASES: dict[str, list[str]] = {
 }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# REFERENCE DATA
-# ═══════════════════════════════════════════════════════════════════════════
+#reference data
 
 KNOWN_COUNTRIES = [
     "Afghanistan", "Albania", "Algeria", "Angola", "Argentina", "Armenia",
@@ -573,9 +565,7 @@ _CERT_FIELDS: dict[str, str] = {
 }
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# TEXT EXTRACTION
-# ═══════════════════════════════════════════════════════════════════════════
+#text extraction
 
 def extract_text_from_pdf(path: str | Path) -> str:
     if not HAS_PDF:
@@ -649,9 +639,7 @@ def get_text(source: str | Path | bytes, fmt: str | None = None) -> tuple[str, s
             return "", "unknown"
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# LABEL MATCHING
-# ═══════════════════════════════════════════════════════════════════════════
+#label matching
 
 def _normalize(s: str) -> str:
     s = s.lower().strip()
@@ -693,9 +681,7 @@ def _match_field_from_label(label: str) -> str | None:
     return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PATTERN EXTRACTORS
-# ═══════════════════════════════════════════════════════════════════════════
+#pattern extractors
 
 _DATE_PATTERN = re.compile(
     r"\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{2}[\/\-\.]\d{2}"
@@ -770,9 +756,7 @@ def _extract_transport_mode(text: str) -> str | None:
     return None
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PARSERS
-# ═══════════════════════════════════════════════════════════════════════════
+#parsers
 
 _KV_PATTERNS = [
     re.compile(r"^(.+?)\s*[:–\-|]\s*(.+)$"),
@@ -902,9 +886,7 @@ def _scan_global_patterns(text: str, doc: TradeDocument) -> None:
                 break
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# MAIN EXTRACTION PIPELINE
-# ═══════════════════════════════════════════════════════════════════════════
+#main extraction pipeline
 
 def extract_trade_fields(
     source: str | Path | bytes,
@@ -1020,6 +1002,8 @@ def _post_process_value(field: str, value: str, full_text: str) -> str:
 def _infer_fields(doc: TradeDocument) -> None:
     if not doc.exporter_country and doc.country_of_origin:
         doc.exporter_country = doc.country_of_origin
+    if doc.exporter_country and not doc.origin_country:
+        doc.origin_country = doc.exporter_country
 
     if doc.origin_country and not doc.country_of_origin:
         doc.country_of_origin = doc.origin_country
@@ -1054,9 +1038,7 @@ def _infer_fields(doc: TradeDocument) -> None:
                 break
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# ExtractedFields HELPERS
-# ═══════════════════════════════════════════════════════════════════════════
+#extracted fields helpers
 
 def _to_iso2(country_name: str | None) -> str | None:
     """Convert a full country name to ISO 3166-1 alpha-2 code."""
@@ -1125,9 +1107,7 @@ def _build_extracted_fields(doc: TradeDocument) -> ExtractedFields:
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# PUBLIC API
-# ═══════════════════════════════════════════════════════════════════════════
+#public api
 
 def extract_from_text(text: str) -> TradeDocument:
     """Extract from a plain text string (typed or pasted)."""
@@ -1199,9 +1179,9 @@ def run_doc_intel(
     return _build_extracted_fields(doc)
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# CLI
-# ═══════════════════════════════════════════════════════════════════════════
+
+
+#cli for quick test
 
 if __name__ == "__main__":
     import sys
