@@ -1,3 +1,13 @@
+---
+title: Afrigate
+emoji: 🌍
+colorFrom: gray
+colorTo: blue
+sdk: gradio
+app_file: app.py
+pinned: false
+---
+
 # Afrigate
 
 Autonomous multi-agent swarm for African cross-border trade compliance, built with LangGraph.
@@ -57,8 +67,11 @@ afrigate/
 │   ├── regulations.json    # Required documents per country (KE, NG, GH, ET)
 │   └── hs_codes.json       # Product → HS code + tariff + trade agreement  ✓
 ├── rag/                    # Phase 2 — RAG knowledge base (stubs)
+├── app.py                  # Hugging Face Spaces entry (Gradio)
+├── requirements.txt        # pip / Spaces dependencies
 ├── ui/
-│   └── app.py              # Gradio web interface
+│   ├── demo.py             # Gradio demo (shared with app.py)
+│   └── app.py              # Full Gradio UI (streaming mock_graph)
 ├── utils/
 │   ├── logger.py           # Structured logging
 │   └── langsmith.py        # LangSmith tracing setup
@@ -83,11 +96,19 @@ cp .env.example .env
 # Phase 1 needs no API keys — leave them blank
 
 # 3. Run the UI
-python -m ui.app
+python app.py              # demo (same as Spaces)
+# or: python -m ui.app    # full streaming UI
 
 # 4. Run tests
 pytest -q
 ```
+
+### Hugging Face Spaces
+
+1. Create a **Gradio** Space and connect this repository (or push a copy).
+2. Leave **App file** as **`app.py`** (declared in the YAML header above).
+3. Dependencies install from **`requirements.txt`**. Phase 1 needs **no secrets**; optional API keys later go in **Space secrets** (e.g. `OPENAI_API_KEY`), read by `core/config.py`.
+4. Use a **CPU basic** tier to start; **chromadb** and LangChain pull a sizeable stack — first boot can take a few minutes.
 
 ---
 
