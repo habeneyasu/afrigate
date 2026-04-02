@@ -14,7 +14,7 @@ import re
 import json
 import string
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from dataclasses import dataclass, field, asdict
 
 
@@ -1064,6 +1064,117 @@ def _infer_fields(doc: TradeDocument) -> None:
             if fta in text:
                 doc.free_trade_agreement = fta.upper()
                 break
+
+
+# ---------------------------------------------------------------------------
+# LangGraph node — maps TradeDocument → AfrigateState.extracted_fields
+# ---------------------------------------------------------------------------
+
+_COUNTRY_NAME_TO_ISO: dict[str, str] = {
+    "ethiopia": "ET",
+    "kenya": "KE",
+    "ghana": "GH",
+    "nigeria": "NG",
+    "south africa": "ZA",
+}
+
+
+def _country_name_to_iso(name: str | None) -> str:
+    """Map a country name or 2-letter code to ISO 3166-1 alpha-2."""
+    if not name:
+        return ""
+    n = str(name).strip()
+    if len(n) == 2 and n.isalpha():
+        return n.upper()
+    key = n.lower().strip().rstrip(".,;")
+    return _COUNTRY_NAME_TO_ISO.get(key, "")
+
+
+def _load_required_documents(destination_iso: str) -> list[str]:
+    path = Path(__file__).resolve().parent.parent / "rules" / "regulations.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    block = data.get(destination_iso) or {}
+    return list(block.get("required_documents") or [])
+
+
+def _documents_present_from_trade_doc(doc: TradeDocument) -> list[str]:
+    """Infer structured compliance tokens from populated certificate / invoice fields."""
+    present: list[str] = []
+    if doc.certificate_of_origin_number:
+        present.append("certificate_of_origin")
+    if doc.phytosanitary_certificate_number:
+        present.append("phytosanitary_certificate")
+    if doc.invoice_number:
+        present.append("commercial_invoice")
+    if doc.packing_list_number:
+        present.append("packing_list")
+    return present
+
+
+def _parse_weight_kg(doc: TradeDocument) -> float | None:
+    unit_ok = {"kg", "kgs", "kilogram", "kilograms"}
+    if doc.quantity and doc.quantity_unit and doc.quantity_unit.lower() in unit_ok:
+        try:
+            return float(str(doc.quantity).replace(",", ""))
+        except ValueError:
+            pass
+    if doc.net_weight and doc.weight_unit and doc.weight_unit.lower() in unit_ok:
+        try:
+            return float(str(doc.net_weight).replace(",", ""))
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_value_usd(doc: TradeDocument) -> float | None:
+    for val_field in (doc.total_value, doc.invoice_value, doc.fob_value, doc.cif_value):
+        if not val_field:
+            continue
+        try:
+            return float(str(val_field).replace(",", ""))
+        except ValueError:
+            continue
+    return None
+
+
+def run_doc_intel(state: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract trade fields from ``document_raw`` for the LangGraph state.
+
+    On iteration > 0 (after evaluator ``retry``), Phase 1 attaches all documents
+    required by ``rules/regulations.json`` for the destination — mocked upload.
+    """
+    raw = state.get("document_raw") or ""
+    doc = extract_from_text(str(raw))
+
+    origin_iso = _country_name_to_iso(doc.origin_country or doc.country_of_origin)
+    dest_iso = _country_name_to_iso(
+        doc.destination_country or doc.importer_country
+    )
+
+    product = (doc.product_name or doc.product_description or "").strip().lower()
+
+    iteration = int(state.get("iteration") or 0)
+    documents_present = _documents_present_from_trade_doc(doc)
+    if iteration > 0:
+        required = _load_required_documents(dest_iso)
+        documents_present = sorted(set(documents_present) | set(required))
+
+    extracted_fields: dict[str, Any] = {
+        "exporter": doc.exporter_name,
+        "importer": doc.importer_name,
+        "origin_country": origin_iso,
+        "destination_country": dest_iso,
+        "product": product,
+        "weight_kg": _parse_weight_kg(doc),
+        "value_usd": _parse_value_usd(doc),
+        "documents_present": documents_present,
+    }
+
+    dest_disp = dest_iso or "?"
+    log_line = (
+        f"doc_intel: extracted product={product!r}, destination={dest_disp!r}"
+    )
+    return {"extracted_fields": extracted_fields, "agent_log": [log_line]}
 
 
 #public api
