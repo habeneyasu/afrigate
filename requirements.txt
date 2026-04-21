@@ -1,0 +1,19 @@
+# Hugging Face Spaces + local pip installs (kept close to pyproject.toml).
+# Phase 1 demo: no API keys required.
+
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-google-genai>=2.0.0
+langsmith>=0.1.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+chromadb>=0.5.0
+gradio>=4.0.0
+python-dotenv>=1.0.0
+pypdf>=4.0.0
+pdfplumber>=0.11.0
+tiktoken>=0.7.0
+# doc_intel (optional imports in agents/doc_intel.py)
+python-docx>=1.1.0
+rapidfuzz>=3.0.0

@@ -1087,6 +1087,91 @@ def to_json(doc: TradeDocument, indent: int = 2) -> str:
     return json.dumps(doc.to_dict(), indent=indent, ensure_ascii=False)
 
 
+# ---------------------------------------------------------------------------
+# Country name → ISO-2 mapping (used by run_doc_intel)
+# ---------------------------------------------------------------------------
+
+_COUNTRY_TO_ISO2: dict[str, str] = {
+    "ethiopia": "ET", "kenya": "KE", "nigeria": "NG", "ghana": "GH",
+    "south africa": "ZA", "egypt": "EG", "tanzania": "TZ", "uganda": "UG",
+    "rwanda": "RW", "senegal": "SN", "ivory coast": "CI", "côte d'ivoire": "CI",
+    "cameroon": "CM", "angola": "AO", "mozambique": "MZ", "zambia": "ZM",
+    "zimbabwe": "ZW", "botswana": "BW", "namibia": "NA", "malawi": "MW",
+    "djibouti": "DJ", "somalia": "SO", "eritrea": "ER", "sudan": "SD",
+    "south sudan": "SS", "dr congo": "CD", "congo": "CG", "gabon": "GA",
+    "united states": "US", "united kingdom": "GB", "germany": "DE",
+    "france": "FR", "china": "CN", "india": "IN", "japan": "JP",
+    "united arab emirates": "AE", "saudi arabia": "SA",
+}
+
+
+def _to_iso2(country_name: str | None) -> str | None:
+    if not country_name:
+        return None
+    return _COUNTRY_TO_ISO2.get(country_name.lower().strip(), country_name)
+
+
+# ---------------------------------------------------------------------------
+# LangGraph node — wires extraction engine to AfrigateState contract
+# ---------------------------------------------------------------------------
+
+def run_doc_intel(state: dict) -> dict:
+    """LangGraph node for doc_intel.
+
+    First pass: extracts trade fields from state['document_raw'].
+    Retry pass: reads state['evaluator_feedback'] and adds named missing
+    documents to extracted_fields['documents_present'].
+
+    Returns a partial state update with extracted_fields and agent_log.
+
+    LLM path (Phase 2): replace extract_from_text() with a structured
+    extraction call using get_worker_llm() from utils.llm_factory.
+    """
+    raw: str = state.get("document_raw", "")
+    iteration: int = state.get("iteration", 0)
+    feedback: str = state.get("evaluator_feedback", "")
+    prev_fields: dict = state.get("extracted_fields") or {}
+
+    # Extract structured fields from raw text
+    doc = extract_from_text(raw)
+
+    # Map TradeDocument → ExtractedFields schema
+    extracted: dict = {
+        "exporter": doc.exporter_name,
+        "importer": doc.importer_name,
+        "origin_country": _to_iso2(doc.origin_country or doc.country_of_origin),
+        "destination_country": _to_iso2(doc.destination_country),
+        "product": (doc.product_name or "").lower().strip(),
+        "weight_kg": float(doc.net_weight) if doc.net_weight and doc.net_weight.replace(".", "").isdigit() else None,
+        "value_usd": float(doc.invoice_value) if doc.invoice_value and doc.invoice_value.replace(".", "").isdigit() else None,
+        "documents_present": list(prev_fields.get("documents_present") or []),
+    }
+
+    # On retry: parse feedback and add any named missing documents
+    if iteration > 0 and feedback:
+        feedback_lower = feedback.lower()
+        _DOC_KEYWORDS = {
+            "certificate_of_origin": ["certificate of origin", "origin certificate"],
+            "phytosanitary_certificate": ["phytosanitary", "phyto certificate", "plant health"],
+            "commercial_invoice": ["commercial invoice"],
+            "packing_list": ["packing list"],
+            "bill_of_lading": ["bill of lading", "b/l"],
+            "form_m": ["form m", "form-m"],
+        }
+        for doc_key, keywords in _DOC_KEYWORDS.items():
+            if any(kw in feedback_lower for kw in keywords):
+                if doc_key not in extracted["documents_present"]:
+                    extracted["documents_present"].append(doc_key)
+
+    log_line = (
+        f"doc_intel: extracted product='{extracted['product']}', "
+        f"destination='{extracted['destination_country']}', "
+        f"docs_present={extracted['documents_present']}"
+    )
+
+    return {"extracted_fields": extracted, "agent_log": [log_line]}
+
+
 # cli
 
 if __name__ == "__main__":

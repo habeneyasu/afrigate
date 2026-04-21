@@ -1,15 +1,25 @@
 """
 ui/demo.py — Afrigate end-to-end compliance demo.
 
-Run:
-    uv run python3 -m ui.demo
-    Open http://127.0.0.1:7860
+Run (repo root on ``PYTHONPATH``)::
+
+    uv run python -m ui.demo
+    # or: python app.py   (Hugging Face Spaces / local)
+
+Open http://127.0.0.1:7860 (or the URL shown in the terminal).
 """
 
 from __future__ import annotations
 
 import json
+import os
+import sys
+from pathlib import Path
 from typing import Any
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 import gradio as gr
 
@@ -344,7 +354,7 @@ EXAMPLES = [
 # Layout — full-screen three-panel
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="Afrigate", css=CSS) as demo:
+with gr.Blocks(title="Afrigate") as demo:
 
     gr.HTML(HEADER)
 
@@ -405,8 +415,11 @@ with gr.Blocks(title="Afrigate", css=CSS) as demo:
 
 
 if __name__ == "__main__":
+    _port = int(os.environ.get("PORT", "7860"))
     demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
+        server_name=os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0"),
+        server_port=_port,
         share=False,
+        css=CSS,
+        show_error=True,
     )
