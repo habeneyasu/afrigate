@@ -10,59 +10,103 @@ pinned: false
 
 # Afrigate
 
-Autonomous multi-agent swarm for African cross-border trade compliance, built with LangGraph.
+**Autonomous trade compliance for African cross-border corridors** — a LangGraph multi-agent system we built to turn natural-language export intent into validated, rule-checked outcomes. Phase 1 runs a **zero-API, deterministic middle layer** so you can explore the graph and UI without external keys.
 
-Phase 1 uses a zero-API, deterministic architecture — no API keys required to run the demo.
-
----
-
-## The Problem
-
-African exporters face a high-friction compliance process: wrong HS codes, missing certificates, and country-specific rules that change frequently. Afrigate automates this end-to-end.
-
-**Reference scenario (RFC §2):** An Ethiopian exporter ships 500 kg of roasted coffee to Kenya. Kenyan rules require a Certificate of Origin and a Phytosanitary Certificate. Afrigate detects the missing documents, self-corrects, and produces a compliant report — without human intervention.
+[Repository](https://github.com/habeneyasu/afrigate) · Built at the **Andela AI Engineering Bootcamp** (AfCFTA-focused prototype; initial corridor: **Ethiopia → Kenya**, coffee).
 
 ---
 
-## How It Works
+## Why we built this
 
-Five agents collaborate under a LangGraph state machine, sharing a single `AfrigateState` object:
+Cross-border African trade fails in expensive, mundane ways: a missing certificate, a miscoded product line, or paperwork that does not match the destination regime can delay shipments, burn margin, and shut markets.
+
+We built Afrigate to automate a slice of that workflow — **extract → classify → validate → decide** — and to make the **failure → recovery → success** loop visible when the first pass is incomplete.
+
+## What you can do with Afrigate (today)
+
+- **Run a cross-border compliance check** from a single natural-language request via the Gradio UI (`ui/app.py`).
+- **Watch the system self-correct**: the evaluator writes feedback into shared state and the graph reruns extraction (bounded by `MAX_ITERATIONS`).
+- **Extend coverage without code changes** by editing JSON rules in `rules/` (HS mappings and destination requirements).
+- **Test each step in isolation** (unit tests) or run the full graph end-to-end (integration tests).
+
+---
+
+## Architecture in one minute
+
+### Orchestration: shared state, not “agent chat”
+
+In LangGraph, **agents do not call one another**. There are no hand-offs or peer messages between nodes. Each step **reads** a shared `TypedDict` state, **writes** partial updates, and returns control to the **graph**, which chooses what runs next.
+
+That separation keeps steps **stateless, narrow, and testable**, and it concentrates orchestration intelligence in **edges and conditional routing** — where audits and changes belong in production systems.
+
+### Design choice: LLM at the edges, deterministic in the middle
+
+| Layer | Role | Why |
+|--------|------|-----|
+| **Edges (LLM-capable)** | Natural-language understanding (document intelligence) and qualitative decisions (evaluator feedback) | Human input and “what went wrong?” explanations are not safely reduced to regex alone. |
+| **Middle (deterministic)** | HS lookup and compliance rules | **Correctness and repeatability** are non-negotiable; rules live in **Python + JSON**, not in model weights. |
+
+### What actually makes the demo work
+
+1. **Agree the state schema before implementing nodes** — every agent assumes the same fields and merge semantics.
+2. **Treat the graph as the product** — nodes are replaceable; routing, caps, and termination policy are the design.
+3. **Show failure → recovery → success** — audiences understand multi-agent orchestration faster when the loop is visible end-to-end.
+
+---
+
+## Pipeline
+
+Four graph nodes, one shared `AfrigateState`:
 
 ```
 START
   │
   ▼
-doc_intel        — extracts product, countries, value, documents from user input
+doc_intel        — structured extraction from natural-language input (LLM when enabled)
   │
   ▼
-hs_classifier    — looks up HS code + tariff rate from rules/hs_codes.json
+hs_classifier    — product → 6-digit HS-style code via deterministic lookup
   │
   ▼
-compliance       — validates required documents against rules/regulations.json
+compliance       — validates extracted data vs destination rules (JSON-backed)
   │
   ▼
-evaluator        — decides: accept / retry (with feedback) / ask_user
+evaluator        — accept | retry (with NL feedback) | ask_user
   │
-  ├─► accept    ──► END  (final_report produced)
-  ├─► retry     ──► back to doc_intel with feedback  (max MAX_ITERATIONS, default 3)
-  └─► ask_user  ──► END  (manual intervention required)
+  ├─► accept    ──► END  (final_report)
+  ├─► retry     ──► doc_intel (feedback merged into state; bounded by MAX_ITERATIONS, default 3)
+  └─► ask_user  ──► END  (human follow-up)
 ```
+
+**Reference scenario:** an Ethiopian exporter ships **500 kg roasted coffee** to Kenya. Kenyan rules may require documents such as a **Certificate of Origin** and **Phytosanitary certificate**. If the first extraction omits a requirement, the evaluator records **actionable feedback** in state; document intelligence runs again with that context until compliance passes or the loop cap is reached.
 
 ---
 
-## Project Structure
+## Stack
+
+**LangGraph** · **GPT-4o-mini** (when LLM features are on) · **Gradio** · **LangSmith** (optional tracing)
+
+---
+
+## Authors
+
+Built by **Haben E. Akelom**, **Naheem Quadri**, **Iyanuoluwa Ajao**, and **Mubaraq Sanusi** at the Andela AI Engineering Bootcamp.
+
+---
+
+## Project structure
 
 ```
 afrigate/
 ├── agents/
-│   ├── doc_intel.py        # @naheem      — extraction & parsing
-│   ├── hs_classifier.py    # @Matrix      — HS code classification  ✓
-│   ├── compliance.py       # Auditor      — compliance validation
-│   └── evaluator.py        # @iyanuashiri — reasoning & retry logic
+│   ├── doc_intel.py        — extraction & parsing
+│   ├── hs_classifier.py    — HS code classification
+│   ├── compliance.py       — compliance validation
+│   └── evaluator.py        — decisioning & retry feedback
 ├── core/
-│   ├── state.py            # AfrigateState + sub-schemas + initial_state()  ✓
-│   ├── graph.py            # LangGraph nodes, edges, retry routing  ✓
-│   └── config.py           # Pydantic settings (API keys, MAX_ITERATIONS)  ✓
+│   ├── state.py            — AfrigateState + sub-schemas + initial_state()
+│   ├── graph.py            — LangGraph nodes, edges, retry routing
+│   └── config.py           — Pydantic settings (API keys, MAX_ITERATIONS)
 ├── rules/
 │   ├── regulations.json    # Required documents per country (KE, NG, GH, ET)
 │   └── hs_codes.json       # Product → HS code + tariff + trade agreement  ✓
@@ -73,17 +117,17 @@ afrigate/
 │   ├── demo.py             # Gradio demo (shared with app.py)
 │   └── app.py              # Full Gradio UI (streaming mock_graph)
 ├── utils/
-│   ├── logger.py           # Structured logging
-│   └── langsmith.py        # LangSmith tracing setup
+│   ├── logger.py           — structured logging
+│   └── langsmith.py        — LangSmith tracing setup
 └── tests/
-    ├── conftest.py         # Shared fixtures (Addis-to-Nairobi scenario)
-    ├── unit/               # Per-agent unit tests
-    └── integration/        # Full graph end-to-end test
+    ├── conftest.py         — shared fixtures (Addis–Nairobi scenario)
+    ├── unit/               — per-agent unit tests
+    └── integration/        — full graph end-to-end test
 ```
 
 ---
 
-## Getting Started
+## Getting started
 
 **Requirements:** Python 3.11+
 
@@ -93,7 +137,7 @@ pip install -e ".[dev]"
 
 # 2. Set up environment
 cp .env.example .env
-# Phase 1 needs no API keys — leave them blank
+# Phase 1: you can leave API keys blank for the deterministic demo path
 
 # 3. Run the UI
 python app.py              # demo (same as Spaces)
@@ -112,12 +156,12 @@ pytest -q
 
 ---
 
-## State Schema
+## State schema
 
-Defined in `core/state.py` as typed sub-schemas. All agents return partial update dicts; LangGraph merges them automatically.
+Defined in `core/state.py` as typed sub-schemas. Agents return **partial update** dicts; LangGraph merges them into `AfrigateState`.
 
 | Field | Type | Set by |
-|---|---|---|
+|------|------|--------|
 | `document_raw` | `str` | UI / caller |
 | `extracted_fields` | `ExtractedFields` | doc_intel |
 | `hs_result` | `HSResult` | hs_classifier |
@@ -126,10 +170,10 @@ Defined in `core/state.py` as typed sub-schemas. All agents return partial updat
 | `evaluator_feedback` | `str` | evaluator |
 | `iteration` | `int` | evaluator (incremented on retry) |
 | `agent_log` | `list[str]` | all agents (append-merged) |
-| `final_report` | `FinalReport \| None` | evaluator (on accept/ask_user) |
+| `final_report` | `FinalReport \| None` | evaluator (on accept / ask_user) |
 | `errors` | `list[str]` | any agent (append-merged) |
 
-To start a new request:
+Minimal invoke:
 
 ```python
 from core.state import initial_state
@@ -144,25 +188,27 @@ result = build_graph().invoke(initial_state(
 
 ## Configuration
 
-All settings are in `core/config.py` (Pydantic, reads from `.env`):
+Settings live in `core/config.py` (Pydantic, loaded from `.env`):
 
 | Variable | Default | Description |
-|---|---|---|
-| `MAX_ITERATIONS` | `3` | Self-correction loop cap |
-| `DEFAULT_MODEL` | `gpt-4o-mini` | LLM model (Phase 2) |
+|----------|---------|-------------|
+| `MAX_ITERATIONS` | `3` | Upper bound on self-correction loops |
+| `DEFAULT_MODEL` | `gpt-4o-mini` | LLM model when the LLM layer is enabled |
 | `LANGCHAIN_TRACING_V2` | `false` | Enable LangSmith tracing |
-| `OPENAI_API_KEY` | — | Required only when LLM layer is enabled |
-| `GOOGLE_API_KEY` | — | Required only when LLM layer is enabled |
+| `OPENAI_API_KEY` | — | Required only when the LLM layer is enabled |
+| `GOOGLE_API_KEY` | — | Required only for optional Google-backed paths |
 
 ---
 
-## Rules Data
+## Rules data
 
-Edit these files to extend coverage — no code changes needed:
+Extend coverage by editing JSON — no code changes required for many rule updates:
 
 - `rules/hs_codes.json` — product keywords → HS code, tariff rate, trade agreement
 - `rules/regulations.json` — destination country → required document keys
 
 ---
 
-See `SPEC.md` for the full RFC.
+## Specification
+
+See `SPEC.md` for the full project RFC and design notes.
